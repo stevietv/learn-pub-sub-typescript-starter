@@ -3,7 +3,13 @@ import amqp from 'amqplib';
 import { getInput, printServerHelp } from '../internal/gamelogic/gamelogic.js';
 import type { PlayingState } from '../internal/gamelogic/gamestate.js';
 import { publishJSON } from '../internal/pubsub/publishJSON.js';
-import { ExchangePerilDirect, PauseKey } from '../internal/routing/routing.js';
+import { declareAndBind, SimpleQueueType } from '../internal/pubsub/queue.js';
+import {
+  ExchangePerilDirect,
+  ExchangePerilTopic,
+  GameLogSlug,
+  PauseKey,
+} from '../internal/routing/routing.js';
 
 async function main() {
   console.log("Starting Peril server...");
@@ -13,6 +19,8 @@ async function main() {
   console.log("Connected to RabbitMQ Server");
 
   const publishChannel = await conn.createConfirmChannel();
+
+  await declareAndBind(conn, ExchangePerilTopic, GameLogSlug, `${GameLogSlug}.*`, SimpleQueueType.Durable);
 
   printServerHelp();
 
