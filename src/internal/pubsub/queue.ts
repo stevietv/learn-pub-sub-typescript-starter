@@ -1,6 +1,8 @@
 import type { Channel } from 'amqplib';
 import amqp from 'amqplib';
 
+import { ExchangePerilDlx } from '../routing/routing.js';
+
 export enum SimpleQueueType {
   Durable,
   Transient,
@@ -23,7 +25,8 @@ export async function declareAndBind(
     const queue = await channel.assertQueue(queueName, { 
         durable: queueType === SimpleQueueType.Durable,
         autoDelete: queueType === SimpleQueueType.Transient,
-        exclusive: queueType === SimpleQueueType.Transient
+        exclusive: queueType === SimpleQueueType.Transient,
+        deadLetterExchange: ExchangePerilDlx,
     });
 
     await channel.bindQueue(queue.queue, exchange, key);
