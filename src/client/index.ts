@@ -1,4 +1,4 @@
-import amqp from 'amqplib';
+import amqp, { type ConfirmChannel } from 'amqplib';
 
 import {
   clientWelcome,
@@ -8,15 +8,17 @@ import {
   printQuit,
 } from '../internal/gamelogic/gamelogic.js';
 import { GameState } from '../internal/gamelogic/gamestate.js';
+import type { GameLog } from '../internal/gamelogic/logs.js';
 import { commandMove } from '../internal/gamelogic/move.js';
 import { commandSpawn } from '../internal/gamelogic/spawn.js';
-import { publishJSON } from '../internal/pubsub/publishJSON.js';
+import { publishJSON, publishMsgPack } from '../internal/pubsub/publishJSON.js';
 import { SimpleQueueType } from '../internal/pubsub/queue.js';
 import { subscribeJSON } from '../internal/pubsub/subscribeJSON.js';
 import {
   ArmyMovesPrefix,
   ExchangePerilDirect,
   ExchangePerilTopic,
+  GameLogSlug,
   PauseKey,
   WarRecognitionsPrefix,
 } from '../internal/routing/routing.js';
@@ -36,7 +38,7 @@ async function main() {
   const gameState = new GameState(username);
   await subscribeJSON(conn, ExchangePerilDirect,`${PauseKey}.${username}`, PauseKey, SimpleQueueType.Transient, handlerPause(gameState));
   await subscribeJSON(conn, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, `${ArmyMovesPrefix}.*`, SimpleQueueType.Transient, handlerMove(gameState, publishChannel));
-  await subscribeJSON(conn, ExchangePerilTopic, WarRecognitionsPrefix, `${WarRecognitionsPrefix}.*`, SimpleQueueType.Durable, handlerWar(gameState));
+  await subscribeJSON(conn, ExchangePerilTopic, WarRecognitionsPrefix, `${WarRecognitionsPrefix}.*`, SimpleQueueType.Durable, handlerWar(gameState, publishChannel));
 
   while (true) {
     const input = await getInput();
@@ -74,6 +76,16 @@ async function main() {
 
     }
   }
+}
+
+export function publishGameLog(ch: ConfirmChannel, username: string, message: string): Promise<void> {
+  const gl: GameLog = {
+    currentTime: new Date(),
+    message: message,
+    username: username,
+  }
+
+  return publishMsgPack(ch, ExchangePerilTopic, `${GameLogSlug}.${username}`, gl);
 }
 
 main().catch((err) => {

@@ -26,15 +26,12 @@ export async function subscribeJSON<T>(
 
         const acktype = await handler(content);
         if (acktype === AckType.Ack) {
-            console.log("Acknowledging Message");
             channel.ack(message);
         }
         else if (acktype === AckType.NackRequeue) {
-            console.log("Nack and requeue Message");
             channel.nack(message, false, true);
         }
         else if (acktype === AckType.NackDiscard) {
-            console.log("Nack and discard Message");
             channel.nack(message, false, false);
         }
     });    

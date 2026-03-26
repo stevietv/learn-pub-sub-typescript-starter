@@ -17,6 +17,7 @@ import {
   ExchangePerilTopic,
   WarRecognitionsPrefix,
 } from '../internal/routing/routing.js';
+import { publishGameLog } from './index.js';
 
 export function handlerPause(gs: GameState) {
     return (ps: PlayingState): AckType => {
@@ -55,10 +56,11 @@ export function handlerMove(gs: GameState, ch: ConfirmChannel) {
     }
 }
 
-export function handlerWar(gs: GameState) {
+export function handlerWar(gs: GameState, ch: ConfirmChannel) {
     return async (rw: RecognitionOfWar): Promise<AckType> => {
         try {
             const outcome = handleWar(gs, rw);
+            const username = gs.getUsername();
 
             switch(outcome.result) {
                 case WarOutcome.NotInvolved: 
@@ -66,10 +68,28 @@ export function handlerWar(gs: GameState) {
                 case WarOutcome.NoUnits:
                     return AckType.NackDiscard;
                 case WarOutcome.OpponentWon:
+                    try {
+                        await publishGameLog(ch, username, `${outcome.winner} won a war against ${outcome.loser}`)
+                    } catch (err) {
+                        console.error("Error publishing game log:", err);
+                        return AckType.NackRequeue;
+                    }
                     return AckType.Ack;
                 case WarOutcome.YouWon:
+                    try {
+                       await publishGameLog(ch, username, `${outcome.winner} won a war against ${outcome.loser}`)
+                    } catch (err) {
+                        console.error("Error publishing game log:", err);
+                        return AckType.NackRequeue;
+                    }
                     return AckType.Ack;
                 case WarOutcome.Draw:
+                    try {
+                       await publishGameLog(ch, username, `A war between ${outcome.attacker} and ${outcome.defender} resulted in a draw`)
+                    } catch (err) {
+                        console.error("Error publishing game log:", err);
+                        return AckType.NackRequeue;
+                    }
                     return AckType.Ack;
                 default:
                     console.error("invalid war outcome");
