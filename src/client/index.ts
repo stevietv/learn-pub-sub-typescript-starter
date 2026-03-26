@@ -10,10 +10,16 @@ import {
 import { GameState } from '../internal/gamelogic/gamestate.js';
 import { commandMove } from '../internal/gamelogic/move.js';
 import { commandSpawn } from '../internal/gamelogic/spawn.js';
+import { publishJSON } from '../internal/pubsub/publishJSON.js';
 import { SimpleQueueType } from '../internal/pubsub/queue.js';
 import { subscribeJSON } from '../internal/pubsub/subscribeJSON.js';
-import { ExchangePerilDirect, PauseKey } from '../internal/routing/routing.js';
-import { handlerPause } from './handlers.js';
+import {
+  ArmyMovesPrefix,
+  ExchangePerilDirect,
+  ExchangePerilTopic,
+  PauseKey,
+} from '../internal/routing/routing.js';
+import { handlerMove, handlerPause } from './handlers.js';
 
 async function main() {
   console.log("Starting Peril client...");
@@ -22,10 +28,13 @@ async function main() {
   const conn = await amqp.connect(connectionString);
   console.log("Connected to RabbitMQ Server");
 
+  const publishChannel = await conn.createConfirmChannel();
+
   const username = await clientWelcome();
 
   const gameState = new GameState(username);
   await subscribeJSON(conn, ExchangePerilDirect,`${PauseKey}.${username}`, PauseKey, SimpleQueueType.Transient, handlerPause(gameState));
+  await subscribeJSON(conn, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, `${ArmyMovesPrefix}.*`, SimpleQueueType.Transient, handlerMove(gameState));
 
   while (true) {
     const input = await getInput();
@@ -40,7 +49,8 @@ async function main() {
           commandSpawn(gameState, input);
           break;
         case "move":
-          commandMove(gameState, input);
+          const move = commandMove(gameState, input);
+          await publishJSON(publishChannel, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, move);
           break;
         case "status":
           await commandStatus(gameState);

@@ -6,6 +6,12 @@ export enum SimpleQueueType {
   Transient,
 }
 
+export enum AckType {
+  Ack,
+  NackRequeue,
+  NackDiscard
+}
+
 export async function declareAndBind(
   conn: amqp.ChannelModel,
   exchange: string,

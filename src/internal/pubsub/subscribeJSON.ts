@@ -1,6 +1,6 @@
 import amqp from 'amqplib';
 
-import { declareAndBind, type SimpleQueueType } from './queue.js';
+import { AckType, declareAndBind, type SimpleQueueType } from './queue.js';
 
 export async function subscribeJSON<T>(
     conn: amqp.ChannelModel,
@@ -8,7 +8,7 @@ export async function subscribeJSON<T>(
     queueName: string,
     key: string,
     queueType: SimpleQueueType,
-    handler: (data: T) => void,
+    handler: (data: T) => AckType,
 ): Promise<void> {
     const [channel, queue] = await declareAndBind(conn, exchange, queueName, key, queueType);
 
@@ -24,7 +24,18 @@ export async function subscribeJSON<T>(
             return;
         }
 
-        handler(content);
-        channel.ack(message);
+        const acktype = handler(content);
+        if (acktype === AckType.Ack) {
+            console.log("Acknowledging Message");
+            channel.ack(message);
+        }
+        else if (acktype === AckType.NackRequeue) {
+            console.log("Nack and requeue Message");
+            channel.nack(message, false, true);
+        }
+        else if (acktype === AckType.NackDiscard) {
+            console.log("Nack and discard Message");
+            channel.nack(message, false, false);
+        }
     });    
 }
