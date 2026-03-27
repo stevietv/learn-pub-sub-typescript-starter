@@ -14,6 +14,7 @@ export async function subscribe<T>(
     decoder: (data: Buffer) => T,
 ): Promise<void> {
     const [channel, queue] = await declareAndBind(conn, exchange, queueName, key, queueType);
+    await channel.prefetch(10);
 
     await channel.consume(queue.queue, async (message: amqp.ConsumeMessage | null) => {
         if (message === null) {

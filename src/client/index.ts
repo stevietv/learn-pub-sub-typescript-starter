@@ -4,6 +4,7 @@ import {
   clientWelcome,
   commandStatus,
   getInput,
+  getMaliciousLog,
   printClientHelp,
   printQuit,
 } from '../internal/gamelogic/gamelogic.js';
@@ -63,7 +64,17 @@ async function main() {
           printClientHelp();
           break;
         case "spam":
-          console.log("Spamming not allowed yet!");
+          if (input[1]) {
+            let count = Number(input[1]);
+            for (let i = 0; i < count; i++) {
+              const gamelog: GameLog = {
+                currentTime: new Date(),
+                message: getMaliciousLog(),
+                username: username
+              }
+              await publishMsgPack(publishChannel, ExchangePerilTopic, `${GameLogSlug}.${username}`, gamelog);
+            }
+          }
           break;
         case "quit":
           printQuit();
