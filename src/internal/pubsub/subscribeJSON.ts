@@ -1,14 +1,17 @@
 import amqp from 'amqplib';
 
+import { decode } from '@msgpack/msgpack';
+
 import { AckType, declareAndBind, type SimpleQueueType } from './queue.js';
 
-export async function subscribeJSON<T>(
+export async function subscribe<T>(
     conn: amqp.ChannelModel,
     exchange: string,
     queueName: string,
     key: string,
     queueType: SimpleQueueType,
     handler: (data: T) => Promise<AckType> | AckType,
+    decoder: (data: Buffer) => T,
 ): Promise<void> {
     const [channel, queue] = await declareAndBind(conn, exchange, queueName, key, queueType);
 
@@ -18,9 +21,9 @@ export async function subscribeJSON<T>(
         }
         let content: T;
         try {
-            content = JSON.parse(message.content.toString());
+            content = decoder(message.content);
         } catch (err) {
-            console.error("Could not process message:", err);
+            console.error("Could not decode message:", err);
             return;
         }
 
@@ -35,4 +38,27 @@ export async function subscribeJSON<T>(
             channel.nack(message, false, false);
         }
     });    
+}
+
+
+export async function subscribeJSON<T>(
+    conn: amqp.ChannelModel,
+    exchange: string,
+    queueName: string,
+    key: string,
+    queueType: SimpleQueueType,
+    handler: (data: T) => Promise<AckType> | AckType,
+): Promise<void> {
+    return subscribe(conn, exchange, queueName, key, queueType, handler, (data) => JSON.parse(data.toString()));
+}
+
+export async function subscribeMsgPack<T>(
+    conn: amqp.ChannelModel,
+    exchange: string,
+    queueName: string,
+    key: string,
+    queueType: SimpleQueueType,
+    handler: (data: T) => Promise<AckType> | AckType
+): Promise<void> {
+    return subscribe(conn, exchange, queueName, key, queueType, handler, (data) => decode(data) as T);
 }
